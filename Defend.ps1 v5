@@ -1,0 +1,104 @@
+param (
+    [string]$action = "unknown"
+)
+
+function TestDNSBlock {
+    param (
+        [string]$nicName = "Ethernet 3",
+        [string]$domainToTest = "malware.testcategory.com"
+    )
+
+   Write-Output "Getting DNS server addresses for $($nicName)..."
+
+    $originalDNS = Get-DnsClientServerAddress -InterfaceAlias $nicName
+
+    if ($originalDNS) {
+        Write-Output "Original DNS Servers for $($nicName):"
+        foreach ($dnsServer in $originalDNS) {
+            Write-Output "  $($dnsServer.ServerAddresses)"
+        }
+    }
+    else {
+        Write-Output "No DNS servers found for $($nicName)."
+        return
+    }
+
+    Write-Output "Resolving IP address for $($domainToTest)..."
+
+    try {
+        $resolvedIP = Resolve-DnsName -Name $domainToTest -ErrorAction Stop
+        $resolvedIPAddress = $resolvedIP.IPAddress
+        Write-Output "Resolved IP address for $($domainToTest): $($resolvedIPAddress)"
+
+        if ($resolvedIPAddress -ne "0.0.0.0") {
+            Write-Output "The host is not using DNS filtering."
+        }
+    }
+    catch {
+        Write-Output "DNS resolution failed for $($domainToTest)."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function EnableDoH {
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters"
+    $dohValue = 2
+
+    Write-Output "Enabling DNS over HTTPS (DoH)..."
+
+    try {
+        Set-ItemProperty -Path $regPath -Name EnableAutoDoH -Value $dohValue
+        Write-Output "DoH has been enabled."
+        Write-Output "Please reboot the computer for the changes to take effect."
+    } catch {
+        Write-Output "Failed to enable DoH."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function SetupQuadDoH {
+    $nicName = "Ethernet 3"
+    $dnsServer = "1.1.1.2"
+
+    Write-Host "Setting up Quad9 DNS over HTTPS..."
+
+    try {
+        Set-DnsClientServerAddress -InterfaceAlias $nicName -ServerAddresses $dnsServer
+
+        $guid = (Get-NetAdapter -InterfaceAlias $nicName).InterfaceGuid
+        $regPath = "HKLM:\System\CurrentControlSet\Services\Dnscache\InterfaceSpecificParameters\$guid\DohInterfaceSettings\Doh\$dnsServer"
+        
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force
+        }
+        
+        Set-ItemProperty -Path $regPath -Name DohFlags -Value 1 -Type DWORD
+
+        Write-Host "Quad9 DNS over HTTPS has been set up for $nicName."
+    } catch {
+        Write-Host "Failed to set up Quad9 DNS over HTTPS."
+        Write-Host "Error message: $($_.Exception.Message)"
+    }
+}
+
+
+switch ($action) {
+    "DoH-test" {
+        TestDNSBlock
+    }
+
+    "DoH-enable" {
+        EnableDoH
+    }
+
+    "DoH-setupQuad" {
+        SetupQuadDoH
+    }
+
+    default {
+        Write-Host "Error: Unknown action '$action'."
+        Write-Host "Usage: defend.ps1 DoH-test      # Run DNS test"
+        Write-Host "       defend.ps1 DoH-enable    # Enable DNS over HTTPS"
+        Write-Host "       defend.ps1 DoH-setupQuad # Setup Quad9 DNS over HTTPS"
+    }
+}
