@@ -1,0 +1,32 @@
+function TestDNSBlock {
+    $nicName = "Ethernet 3"
+    $domainToTest = "malware.testcategory.com"
+
+    Write-Host "Getting DNS server addresses for $nicName..."
+    $originalDNS = Get-DnsClientServerAddress -InterfaceAlias $nicName
+
+    if ($originalDNS) {
+        Write-Host "Original DNS Servers for $($nicName):"
+        foreach ($dnsServer in $originalDNS) {
+            Write-Host "  $($dnsServer.ServerAddresses)"
+        }
+    } else {
+        Write-Host "No DNS servers found for $($nicName)."
+        return
+    }
+
+    Write-Host "Resolving IP address for $($domainToTest)..."
+    try {
+        $resolvedIP = Resolve-DnsName -Name $domainToTest -ErrorAction Stop
+        $resolvedIPAddress = $resolvedIP.IPAddress
+        Write-Host "Resolved IP address for $($domainToTest): $($resolvedIPAddress)"
+        if ($resolvedIPAddress -ne "0.0.0.0") {
+            Write-Host "The host is not using DNS filtering."
+        }
+    } catch {
+        Write-Host "DNS resolution failed for $($domainToTest)."
+        Write-Host "Error message: $($_.Exception.Message)"
+    }
+}
+
+TestDNSBlock
