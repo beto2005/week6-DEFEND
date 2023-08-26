@@ -74,10 +74,10 @@ function SetupQuadDoH {
         
         Set-ItemProperty -Path $regPath -Name DohFlags -Value 1 -Type DWORD
 
-        Write-Host "Quad9 DNS over HTTPS has been set up for $nicName."
+        Write-Output "Quad9 DNS over HTTPS has been set up for $nicName."
     } catch {
-        Write-Host "Failed to set up Quad9 DNS over HTTPS."
-        Write-Host "Error message: $($_.Exception.Message)"
+        Write-Output "Failed to set up Quad9 DNS over HTTPS."
+        Write-Output "Error message: $($_.Exception.Message)"
     }
 }
 
@@ -96,9 +96,9 @@ switch ($action) {
     }
 
     default {
-        Write-Host "Error: Unknown action '$action'."
-        Write-Host "Usage: defend.ps1 DoH-test      # Run DNS test"
-        Write-Host "       defend.ps1 DoH-enable    # Enable DNS over HTTPS"
-        Write-Host "       defend.ps1 DoH-setupQuad # Setup Quad9 DNS over HTTPS"
+        Write-Output "Error: Unknown action '$action'."
+        Write-Output "Usage: defend.ps1 DoH-test      # Run DNS test"
+        Write-Output "       defend.ps1 DoH-enable    # Enable DNS over HTTPS"
+        Write-Output "       defend.ps1 DoH-setupQuad # Setup Quad9 DNS over HTTPS"
     }
 }
