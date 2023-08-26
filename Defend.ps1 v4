@@ -66,8 +66,8 @@ switch ($action) {
     }
 
     default {
-        Write-Host "Error: Unknown action '$action'."
-        Write-Host "Usage: defend.ps1 DoH-test   # Run DNS test"
-        Write-Host "       defend.ps1 DoH-enable # Enable DNS over HTTPS"
+        Write-Output "Error: Unknown action '$action'."
+        Write-Output "Usage: defend.ps1 DoH-test   # Run DNS test"
+        Write-Output "       defend.ps1 DoH-enable # Enable DNS over HTTPS"
     }
 }
