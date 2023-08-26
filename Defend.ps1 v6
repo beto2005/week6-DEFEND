@@ -61,7 +61,7 @@ function SetupQuadDoH {
     $nicName = "Ethernet 3"
     $dnsServer = "1.1.1.2"
 
-    Write-Host "Setting up Quad9 DNS over HTTPS..."
+    Write-Output "Setting up Quad9 DNS over HTTPS..."
 
     try {
         Set-DnsClientServerAddress -InterfaceAlias $nicName -ServerAddresses $dnsServer
@@ -75,10 +75,10 @@ function SetupQuadDoH {
         
         Set-ItemProperty -Path $regPath -Name DohFlags -Value 1 -Type DWORD
 
-        Write-Host "Quad9 DNS over HTTPS has been set up for $nicName."
+        Write-Output "Quad9 DNS over HTTPS has been set up for $nicName."
     } catch {
-        Write-Host "Failed to set up Quad9 DNS over HTTPS."
-        Write-Host "Error message: $($_.Exception.Message)"
+        Write-Output "Failed to set up Quad9 DNS over HTTPS."
+        Write-Output "Error message: $($_.Exception.Message)"
     }
 }
 
@@ -86,15 +86,15 @@ function ResetDoH {
     $nicName = "Ethernet 3"  
     $originalDNS = "10.0.2.3"  
 
-    Write-Host "Resetting DNS over HTTPS settings..."
+    Write-Output "Resetting DNS over HTTPS settings..."
 
     try {
         Set-DnsClientServerAddress -InterfaceAlias $nicName -ServerAddresses $originalDNS
 
-        Write-Host "DNS over HTTPS settings have been reset."
+        Write-Output "DNS over HTTPS settings have been reset."
     } catch {
-        Write-Host "Failed to reset DNS over HTTPS settings."
-        Write-Host "Error message: $($_.Exception.Message)"
+        Write-Output "Failed to reset DNS over HTTPS settings."
+        Write-Output "Error message: $($_.Exception.Message)"
     }
 }
 
@@ -116,10 +116,10 @@ switch ($action) {
     }
 
     default {
-        Write-Host "Error: Unknown action '$action'."
-        Write-Host "Usage: defend.ps1 DoH-test      # Run DNS test"
-        Write-Host "       defend.ps1 DoH-enable    # Enable DNS over HTTPS"
-        Write-Host "       defend.ps1 DoH-setupQuad # Setup Quad9 DNS over HTTPS"
-        Write-Host "       defend.ps1 DoH-reset     # Reset DNS over HTTPS settings"
+        Write-Output "Error: Unknown action '$action'."
+        Write-Output "Usage: defend.ps1 DoH-test      # Run DNS test"
+        Write-Output "       defend.ps1 DoH-enable    # Enable DNS over HTTPS"
+        Write-Output "       defend.ps1 DoH-setupQuad # Setup Quad9 DNS over HTTPS"
+        Write-Output "       defend.ps1 DoH-reset     # Reset DNS over HTTPS settings"
     }
 }
