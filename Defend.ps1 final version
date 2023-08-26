@@ -1,0 +1,181 @@
+param (
+    [string]$action = "unknown"
+)
+
+function TestDNSBlock {
+    param (
+        [string]$nicName = "Ethernet 3",
+        [string]$domainToTest = "malware.testcategory.com"
+    )
+
+   Write-Output "Getting DNS server addresses for $($nicName)..."
+
+    $originalDNS = Get-DnsClientServerAddress -InterfaceAlias $nicName
+
+    if ($originalDNS) {
+        Write-Output "Original DNS Servers for $($nicName):"
+        foreach ($dnsServer in $originalDNS) {
+            Write-Output "  $($dnsServer.ServerAddresses)"
+        }
+    }
+    else {
+        Write-Output "No DNS servers found for $($nicName)."
+        return
+    }
+
+    Write-Output "Resolving IP address for $($domainToTest)..."
+
+    try {
+        $resolvedIP = Resolve-DnsName -Name $domainToTest -ErrorAction Stop
+        $resolvedIPAddress = $resolvedIP.IPAddress
+        Write-Output "Resolved IP address for $($domainToTest): $($resolvedIPAddress)"
+
+        if ($resolvedIPAddress -ne "0.0.0.0") {
+            Write-Output "The host is not using DNS filtering."
+        }
+    }
+    catch {
+        Write-Output "DNS resolution failed for $($domainToTest)."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function EnableDoH {
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters"
+    $dohValue = 2
+
+    Write-Output "Enabling DNS over HTTPS (DoH)..."
+
+    try {
+        Set-ItemProperty -Path $regPath -Name EnableAutoDoH -Value $dohValue
+        Write-Output "DoH has been enabled."
+        Write-Output "Please reboot the computer for the changes to take effect."
+    } catch {
+        Write-Output "Failed to enable DoH."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function SetupQuadDoH {
+    $nicName = "Ethernet 3"
+    $dnsServer = "1.1.1.2"
+
+    Write-Output "Setting up Quad9 DNS over HTTPS..."
+
+    try {
+        Set-DnsClientServerAddress -InterfaceAlias $nicName -ServerAddresses $dnsServer
+
+        $guid = (Get-NetAdapter -InterfaceAlias $nicName).InterfaceGuid
+        $regPath = "HKLM:\System\CurrentControlSet\Services\Dnscache\InterfaceSpecificParameters\$guid\DohInterfaceSettings\Doh\$dnsServer"
+        
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force
+        }
+        
+        Set-ItemProperty -Path $regPath -Name DohFlags -Value 1 -Type DWORD
+
+        Write-Output "Quad9 DNS over HTTPS has been set up for $nicName."
+    } catch {
+        Write-Output "Failed to set up Quad9 DNS over HTTPS."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function ResetDoH {
+    $nicName = "Ethernet 3"  
+    $originalDNS = "10.0.2.3"  
+
+    Write-Output "Resetting DNS over HTTPS settings..."
+
+    try {
+        Set-DnsClientServerAddress -InterfaceAlias $nicName -ServerAddresses $originalDNS
+
+        Write-Host "DNS over HTTPS settings have been reset."
+    } catch {
+        Write-Output "Failed to reset DNS over HTTPS settings."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function ConfigureFirewallBlockPort80 {
+    $ruleName = "Block-Port80-Outbound"
+    $port = 80
+    $protocol = "TCP"
+
+    v "Configuring Windows 11 firewall to block outbound connections to TCP port 80..."
+
+    try {
+        New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -Action Block -Protocol $protocol -RemotePort $port
+        Write-Output "Firewall rule to block outbound port 80 has been created."
+    } catch {
+        Write-Output "Failed to create firewall rule to block outbound port 80."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+function TestFirewallBlockPort80 {
+    $port = 80
+    $protocol = "TCP"
+    $testConnection = Test-NetConnection -ComputerName "www.example.com" -Port $port -InformationLevel Quiet
+
+    if ($testConnection -eq $false) {
+        Write-Output "TCP port $port outbound traffic is blocked."
+    } else {
+        Write-Output "TCP port $port outbound traffic is NOT blocked."
+    }
+}
+
+function DisableFirewallBlockPort80 {
+    $ruleName = "Block-Port80-Outbound"
+
+    Write-Output "Disabling the firewall rule that blocks outbound connections to TCP port 80..."
+
+    try {
+        Get-NetFirewallRule -DisplayName $ruleName | Remove-NetFirewallRule
+        Write-Output "Firewall rule to block outbound port 80 has been disabled."
+    } catch {
+        Write-Output "Failed to disable firewall rule to block outbound port 80."
+        Write-Output "Error message: $($_.Exception.Message)"
+    }
+}
+
+switch ($action) {
+    "DoH-test" {
+        TestDNSBlock
+    }
+
+    "DoH-enable" {
+        EnableDoH
+    }
+
+    "DoH-setupQuad" {
+        SetupQuadDoH
+    }
+
+    "DoH-reset" {
+        ResetDoH
+    }
+
+    "Firewall-blockPort80" {
+        ConfigureFirewallBlockPort80
+    }
+
+    "Firewall-testBlockPort80" {
+        TestFirewallBlockPort80
+    }
+
+    "Firewall-disableBlockPort80" {
+        DisableFirewallBlockPort80
+    }
+
+    default {
+        Write-Output "Error: Unknown action '$action'."
+        Write-Output "Usage: defend.ps1 DoH-test           # Run DNS test"
+        Write-Output "       defend.ps1 DoH-enable         # Enable DNS over HTTPS"
+        Write-Output "       defend.ps1 DoH-setupQuad      # Setup Quad9 DNS over HTTPS"
+        Write-Output "       defend.ps1 DoH-reset          # Reset DNS over HTTPS settings"
+        Write-Output "       defend.ps1 Firewall-blockPort80      # Block outbound port 80"
+        Write-Output "       defend.ps1 Firewall-testBlockPort80  # Test if port 80 is blocked"
+        Write-Output "       defend.ps1 Firewall-disableBlockPort80  # Disable blocking of port 80"
+    }
+}
